@@ -29,36 +29,34 @@
              (update-in [:dependencies] (fnil into []) pod-deps)
              (pod/make-pod))))
 
-(defn filter-git-files
-  "Returns a non-lazy sequence of java.io.File(s) of the non-nil results
-  of (f item). The function f must be free of side-effects and accept
-  each java.io.File in the repository.
+(defn git-files
+  "Returns a non-lazy sequence of java.io.File(s) in the repository at repo-path.
 
   The 2-arity version retrieves from HEAD whereas the 3-arity accept
-  an (commit-ish) id. In case of invalid/not found commit id it returns
-  an empty sequence."
-  ([f repo-path]
-   (filter-git-files f repo-path "HEAD"))
-  ([f repo-path ^org.eclipse.jgit.lib.AnyObjectId id]
+  an (commit-ish) id.
+
+  In case of invalid/unresolved commit id it returns an empty sequence."
+  ([repo-path]
+   (git-files repo-path "HEAD"))
+  ([repo-path id]
    (clj-jgit.porcelain/with-repo repo-path
-     (if-let [tree (some-> (.getRepository repo) (.resolve id) (.getTree))]
-       (let [commit (-> rev-walk
-                        (.parseCommit id)
-                        (.getTree))
+     (if-let [^org.eclipse.jgit.lib.AnyObjectId obj-id (some-> (.getRepository repo)
+                                                               (.resolve id))]
+       (let [commit (.parseCommit rev-walk obj-id)
              twalk  (doto (org.eclipse.jgit.treewalk.TreeWalk. (.getRepository repo))
-                      (.addTree tree)
+                      (.addTree (.getTree commit))
                       (.setRecursive true))
-             files (->> (loop [go? (.next twalk) files []]
-                          (if-not go?
+             files (->> (loop [next? ^boolean (.next twalk)
+                               files []]
+                          (if-not next?
                             files
                             (recur (.next twalk)
-                                   (if (f io/file)
-                                     (conj files (.getPathString twalk))
-                                     files)))))]
+                                   (conj files (io/file (.getPathString twalk)))))))]
          (boot-util/dbug "%d files in the repo\n" (count files))
-         (.release twalk))
-       (do (boot-util/dbug "Invalid commit id, return an empty sequence\n")
-           [])))))
+         (.release twalk)
+         (.release rev-walk)
+         files)
+       []))))
 
 (core/deftask add-closure-library!
   "Clone the input repository and adds the entire folder to the output
