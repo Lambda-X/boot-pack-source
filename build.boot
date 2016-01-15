@@ -24,7 +24,8 @@
 
 (deftask set-dev! []
   (set-env! :source-paths #{"test"}
-            :dependencies #(into % '[[adzerk/boot-test "1.1.0" :scope "test"]])))
+            :dependencies #(into % '[[org.slf4j/slf4j-simple "1.7.2"]
+                                     [adzerk/boot-test "1.1.0" :scope "test"]])))
 
 (deftask test
   "Start auto testing mode (dev profile)"
