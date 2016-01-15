@@ -1,4 +1,4 @@
-# boot-cljs-src
+# replumb/boot-cljs-src
 
 Boot task that collects the ClojureScript files each and every [self-hosted](https://en.m.wikipedia.org/wiki/Self-hosting_compiler) REPL app requires (pun intended) in order to work properly.
 
@@ -6,7 +6,11 @@ Expanding on the topic a bit, the final [Boot fileset](https://github.com/boot-c
 
 ## Usage
 
-FIXME
+TBD
+
+## Contributing
+
+I suggest first of all to start auto testing with `boot test` and then freerly hack some basic test for your new feature.
 
 ## License
 
