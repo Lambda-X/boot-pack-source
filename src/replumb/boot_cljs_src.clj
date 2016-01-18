@@ -1,102 +1,139 @@
 (ns replumb.boot-cljs-src
   {:boot/export-tasks true}
-  (:require [clojure.pprint :as pp]
-            [clojure.java.io :as io]
-            [clojure.string :as string]
-            [boot.filesystem :as fs]
-            [boot.git :as git]
-            [boot.pod :as pod]
-            [boot.file :as file]
+  (:require [clojure.string :as string]
             [boot.core :as core :refer [boot]]
-            [boot.util :as boot-util]
-            [replumb.boot.util :as util]
-            [clj-jgit.porcelain :as jgit]
-            [clj-jgit.util :As jgit-util]))
+            [boot.pod :as pod]
+            [boot.from.digest :as digest]
+            [boot.util :as util]
+            [boot.task.built-in :as built-in]))
 
-(def closure-git-url "https://github.com/google/closure-library.git")
-(def closure-base-src-path "/closure")
-(def closure-third-party-src-path "/third_party/closure")
+;; https://github.com/boot-clj/boot/pull/398
+(defn filter-tmpfiles
+  "Filter TmpFiles that match (a least one in) metadata-preds.
 
-(reset! boot-util/*verbosity* 2)
+  Metadata-preds is a set of functions which will receive a TmpFile and
+  tried not in a specific order. If no predicate in the set returns
+  true-y, the file is filtered out from the returned TmpFiles.
 
-(def ^:private pod-deps
-  '[[clj-jgit "0.8.8"]])
+  If invert is specified, the behavior is reversed."
+  ([tmpfiles metadata-preds]
+   (filter-tmpfiles tmpfiles metadata-preds false))
+  ([tmpfiles metadata-preds invert?]
+   (when (seq metadata-preds)
+     ((if-not invert? filter remove) (apply some-fn metadata-preds) tmpfiles))))
 
-(defn pod-new-env
-  "Return a deref-able object which yield the new pod"
-  [old-env]
-  (delay (-> old-env
-             (update-in [:dependencies] (fnil into []) pod-deps)
-             (pod/make-pod))))
+(defn normalize-path
+  "Adds a / if missing at the end of the path."
+  [path]
+  (str path (when-not (= "/" (last path)) "/")))
 
-(defn git-files
-  "Returns a non-lazy sequence of java.io.File(s) in the repository at repo-path.
+(core/deftask rebase
+  "A task for moving fileset from one dir to another"
+  [w with-meta KEY  #{kw}  "The set of metadata keys files must have for being rebased."
+   p path      PATH str    "The destination path to rebase the filtered fileset into."
+   v invert         bool   "Invert the sense of with-meta."]
 
-  The 2-arity version retrieves from HEAD whereas the 3-arity accept
-  an (commit-ish) id.
+  (core/with-pre-wrap fileset
+    (let [files (filter-tmpfiles (core/ls fileset) with-meta invert)
+          paths (map (juxt :path #(str (normalize-path path) (:path %))) files)]
+      (core/commit! (reduce (fn [acc [from-path to-path]]
+                              (merge acc (core/mv acc from-path to-path))) fileset paths)))))
 
-  In case of invalid/unresolved commit id it returns an empty sequence."
-  ([repo-path]
-   (git-files repo-path "HEAD"))
-  ([repo-path id]
-   (clj-jgit.porcelain/with-repo repo-path
-     (if-let [^org.eclipse.jgit.lib.AnyObjectId obj-id (some-> (.getRepository repo)
-                                                               (.resolve id))]
-       (let [commit (.parseCommit rev-walk obj-id)
-             twalk  (doto (org.eclipse.jgit.treewalk.TreeWalk. (.getRepository repo))
-                      (.addTree (.getTree commit))
-                      (.setRecursive true))
-             files (->> (loop [next? ^boolean (.next twalk)
-                               files []]
-                          (if-not next?
-                            files
-                            (recur (.next twalk)
-                                   (conj files (io/file (.getPathString twalk)))))))]
-         (boot-util/dbug "%d files in the repo\n" (count files))
-         (.release twalk)
-         (.release rev-walk)
-         files)
-       []))))
+(core/deftask sift-jar*
+  "Custom version of boot.task.built-in/sift :add-jar which accepts
+  a (previously resolved) jar file in input."
+  [j jar     PATH  str      "The path of the jar file."
+   i include MATCH #{regex} "The set of regexes that paths must match."
+   v invert        bool     "Invert the sense of matching."]
 
-(core/deftask add-closure-library!
-  "Clone the input repository and adds the entire folder to the output
-   fileset."
-  [u uri    URI  str    "The uri to the git repository"
-   r remote STR  str    "The git remote to clone (defaults to origin)"
-   b branch STR  str    "The git branch to clone (defaults to master)."]
+  (core/with-pre-wrap fileset
+    (core/add-cached-resource fileset (digest/md5 jar)
+                              (partial pod/unpack-jar jar)
+                              :include (when-not invert include)
+                              :exclude (when invert include)
+                              :mergers pod/standard-jar-mergers)))
 
-  (let [remote (or remote "origin")
-        branch (or branch "master")
-        #_prj-name #_(clj-jgit.util/name-from-uri uri)
-        tmp (core/tmp-dir!)
-        tmp-string (.getAbsolutePath tmp) ;; necessary because passing in a pod
-        pod (pod-new-env (core/get-env))]
-    (core/with-pre-wrap fs
-      (core/empty-dir! tmp)
-      (boot-util/dbug "Tmp-dir is %s\n" tmp)
-      (boot-util/info "Cloning %s %s %s...\n" uri remote branch)
-      (util/git-clone-in-pod @pod uri tmp-string remote branch)
+(def default-scopes #{"compile"})
 
-      (boot-util/info "Filtering the files in the repository...\n")
+(defn correct-scope?
+  [dep-map]
+  (contains? default-scopes (:scope dep-map)))
 
+(defn clojurescript?
+  [dep-map]
+  (= 'org.clojure/clojurescript (:project dep-map)))
 
-      #_(doseq [p (git/git-files :ref ref)]
-          (file/copy-with-lastmod (io/file p) (io/file tmt p)))
-      #_(-> fs (core/add-resource tmp) core/commit!)
-      fs)))
+(defn include-dependency?
+  [dep-map]
+  (or (clojurescript? dep-map) (correct-scope? dep-map)))
+
+(defn map-as-dep
+  "Returns the given dependency vector with :project and :version put at
+  index 0 and 1 respectively and modifiers (eg. :scope, :exclusions,
+  etc) next."
+  [{:keys [project version] :as dep-map}]
+  (let [kvs (remove #(or (some #{:project :version} %)
+                         (= [:scope "compile"] %)) dep-map)]
+    (vec (remove nil? (into [project version] (flatten kvs))))))
+
+(def ^:private inclusion-regex-set
+  "Entries matching these Patterns will be included."
+  #{#"LICENSE"
+    #"epl-v10"
+    #".clj$"
+    #".cljs$"
+    #".cljc$"
+    #".js$"})
+
+(def ^:private exclusion-regex-set
+  "Entries matching these Patterns will not be included."
+  #{#"closure-compiler"
+    #"project.clj"
+    #"third_party\/closure\/.*base.js$"
+    #"third_party\/closure\/.*deps.js$"})
+
+(core/deftask pack-source
+  "Add the relevant source files from the project dependencies.
+
+  Specifically, this task moves all the clj, cljs, cljc and js files to the
+  to-dir folder specified by the user (defaulting to cljs-src) and keeping
+  intact the original namespace structure.
+
+  Currently only scope \"compile\" dependencies are added.
+
+  For more info on why you would need this see the following blog post:
+  - http://blog.scalac.io/2015/12/21/cljs-replumb-require.html"
+  [d to-dir  DIR str  "The dir to materialize source files into."]
+  (let [dest-dir (or to-dir "cljs-src")
+        env (update (core/get-env) :dependencies
+                    #(->> %
+                          (map util/dep-as-map)
+                          (filter include-dependency?)
+                          (map map-as-dep)
+                          vec))
+        jars (->> (pod/resolve-dependencies env)
+                  (map :jar))]
+    (util/dbug "Including source from the following jars:\n%s\n" (string/join "\n" jars))
+    (comp (reduce #(comp %1 (comp (sift-jar* :jar %2 :include inclusion-regex-set)
+                                  (built-in/sift :include exclusion-regex-set
+                                                 :invert true)))
+                  (built-in/sift :add-meta {#".*" ::initial-fileset})
+                  jars)
+          (rebase :path dest-dir :with-meta #{::initial-fileset} :invert true))))
+
 
 (comment
-  (def remote "origin")
-  (def branch "master")
+  (reset! util/*verbosity* 1)
+  (boot (pack-source))
+
   (def tmp (core/tmp-dir!))
-  (def tmp-string (.getAbsolutePath tmp))
-  (def uri closure-git-url)
+  (def tmp-str (.tmp))
+  (def jar "/home/kapitan/.m2/repository/org/mozilla/rhino/1.7R5/rhino-1.7R5.jar")
+  (sift-jar :jar jar :include inclusion-regex)
 
-  (def repo (jgit/load-repo tmp-string))
-  (def rev-obj (some-> (.getRepository repo)
-                       (.resolve "HEAD")))
-  (def commit (-> (org.eclipse.jgit.revwalk.RevWalk. (.getRepository repo))
-                  (.parseCommit rev-obj)
-                  (.getTree)))
+  (def closure-files (boot.core/by-re [#"closure\/goog\/.*.js$"
+                                       #"third_party\/closure\/goog\/.*.js$"] files))
+  (def base-deps-files (boot.core/not-by-re [#"third_party\/closure\/.*base.js$"
+                                             #"third_party\/closure\/.*deps.js$"] closure-files))
 
-  )
+  (util/purge-dir! tmp))

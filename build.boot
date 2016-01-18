@@ -1,10 +1,8 @@
 (set-env!
- :source-paths    #{"src"}
- :resource-paths  #{"resources"}
- :dependencies '[[org.clojure/clojure "1.6.0"]
-                 [adzerk/bootlaces "0.1.13" :scope "test"]
-                 [degree9/boot-semver "1.2.0" :scope "test"]
-                 [clj-jgit "0.8.8"]])
+ :source-paths #{"src"}
+ :dependencies '[[spyscope "0.1.5" :scope "test"]
+                 [degree9/boot-semver "1.2.4" :scope "test"]
+                 [adzerk/bootlaces "0.1.13" :scope "test"]])
 
 (require '[adzerk.bootlaces :refer :all])
 
@@ -12,8 +10,8 @@
 (bootlaces! +version+)
 
 (task-options! pom {:project 'boot-cljs-src
-                    :version (str +version+ "-standalone")
-                    :description "Boot task that collects the ClojureScript source each and every REPL app requires"
+                    :version +version+
+                    :description "Boot task that collects and stores Clojure(Script) source files."
                     :license {"Eclipse Public License" "http://www.eclipse.org/legal/epl-v10.html"}})
 
 (ns-unmap 'boot.user 'test)
@@ -23,15 +21,20 @@
 (deftask deps [])
 
 (deftask set-dev! []
-  (set-env! :source-paths #{"test"}
-            :dependencies #(into % '[[org.slf4j/slf4j-simple "1.7.2"]
-                                     [adzerk/boot-test "1.1.0" :scope "test"]])))
+  (set-env! :source-paths #(conj % "test")
+            :dependencies #(into % '[[adzerk/boot-test "1.1.1" :scope "test"]]))
+  (require 'adzerk.boot-test))
 
 (deftask test
+  "Testing once (dev profile)"
+  []
+  (set-dev!)
+  (comp ((eval 'adzerk.boot-test/test))))
+
+(deftask auto-test
   "Start auto testing mode (dev profile)"
   []
   (set-dev!)
-  (require 'adzerk.boot-test)
   (comp (watch)
         (speak)
         ((eval 'adzerk.boot-test/test))))
