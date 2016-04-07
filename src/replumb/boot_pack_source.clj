@@ -87,10 +87,7 @@
 
 (def ^:private exclusion-regex-set
   "Entries matching these Patterns will not be included."
-  #{#"closure-compiler"
-    #"project.clj"
-    #"third_party\/closure\/.*base.js$"
-    #"third_party\/closure\/.*deps.js$"})
+  #{#"project.clj"})
 
 (core/deftask pack-source
   "Add the relevant source files from the project dependencies.
@@ -99,14 +96,16 @@
   to-dir folder specified by the user (defaulting to cljs-src) and keeping
   intact the original namespace structure.
 
-  Currently only scope \"compile\" dependencies are added.
+  Currently only the \"compile\" scope is taken into consideration and in case the
+  dependencies parameter is missing, the task will use (:dependencies (core/get-env))
 
   For more info on why you would need this see the following blog post:
   - http://blog.scalac.io/2015/12/21/cljs-replumb-require.html"
-  [d to-dir  DIR str  "The dir to materialize source files into."]
+  [t to-dir DIR str    "The dir to materialize source files into."
+   d deps   DEP #{[sym str]} "The dependency vector to pack."]
   (let [dest-dir (or to-dir "cljs-src")
         env (update (core/get-env) :dependencies
-                    #(->> %
+                    #(->> (or (vec deps) %)
                           (map util/dep-as-map)
                           (filter include-dependency?)
                           (map map-as-dep)
@@ -123,7 +122,7 @@
 
 
 (comment
-  (reset! util/*verbosity* 1)
+  (reset! util/*verbosity* 2)
   (boot (pack-source))
 
   (def tmp (core/tmp-dir!))
