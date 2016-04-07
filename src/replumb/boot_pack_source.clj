@@ -96,25 +96,37 @@
   to-dir folder specified by the user (defaulting to cljs-src) and keeping
   intact the original namespace structure.
 
-  Currently only the \"compile\" scope is taken into consideration and in case the
-  dependencies parameter is missing, the task will use (:dependencies (core/get-env))
+  Currently only the \"compile\" scope is taken into consideration and in case
+  the deps parameter is missing, the task will use (:dependencies (get-env))
 
-  For more info on why you would need this see the following blog post:
-  - http://blog.scalac.io/2015/12/21/cljs-replumb-require.html"
-  [t to-dir DIR str    "The dir to materialize source files into."
-   d deps   DEP #{[sym str]} "The dependency vector to pack."]
+  The default inclusion set is #{#\".clj$\" #\".cljs$\" #\".cljc$\" #\".js$\"
+  whereas the default exclusion set is #{#\"project.clj\"}. If you provide the
+  include or exclude regex sets, the defaults will be replaced, not merged.
+
+  Exclusions is a set of symbols which will completely discard a dependency,
+  transitive dependencies included."
+  [t to-dir     DIR     str          "The dir to materialize source files into."
+   d deps       DEPVEC  #{[sym str]} "The dependency vector to pack."
+   x exclusions DEP     #{sym}       "The dependency symbol to exclude explicitly."
+   i include    MATCH   #{regex}     "The set of regexes that paths must match."
+   e exclude    MATCH   #{regex}     "The set of regexes that paths must NOT match."]
   (let [dest-dir (or to-dir "cljs-src")
         env (update (core/get-env) :dependencies
-                    #(->> (or (vec deps) %)
-                          (map util/dep-as-map)
-                          (filter include-dependency?)
-                          (map map-as-dep)
-                          vec))
+                    (fn [old-deps]
+                      (->> (vec (or deps old-deps))
+                           (map util/dep-as-map)
+                           (filter include-dependency?)
+                           (map map-as-dep)
+                           (remove #(contains? (or exclusions #{}) (first %)))
+                           vec)))
+        include-set (or include inclusion-regex-set)
+        exclude-set (or exclude exclusion-regex-set)
         jars (->> (pod/resolve-dependencies env)
+                  (remove #(contains? (or exclusions #{}) (-> % :dep first)))
                   (map :jar))]
     (util/dbug "Including source from the following jars:\n%s\n" (string/join "\n" jars))
-    (comp (reduce #(comp %1 (comp (sift-jar* :jar %2 :include inclusion-regex-set)
-                                  (built-in/sift :include exclusion-regex-set
+    (comp (reduce #(comp %1 (comp (sift-jar* :jar %2 :include include-set)
+                                  (built-in/sift :include exclude-set
                                                  :invert true)))
                   (built-in/sift :add-meta {#".*" ::initial-fileset})
                   jars)
@@ -122,8 +134,17 @@
 
 
 (comment
-  (reset! util/*verbosity* 2)
-  (boot (pack-source))
+  (reset! util/*verbosity* 0)
+  (boot (pack-source :deps #{['org.clojure/clojurescript "1.8.34"]}) (built-in/show :fileset true))
+
+  (boot (pack-source :deps #{['org.clojure/clojurescript "1.8.34"]}
+                     :exclude #{#"project.clj"
+                                #"third_party\/closure\/.*base.js$"
+                                #"third_party\/closure\/.*deps.js$"
+                                #"org\/clojure\/clojure\/.*$"}
+                     :exclusions '#{org.clojure/clojure
+                                    org.mozilla/rhino})
+        (built-in/target))
 
   (def tmp (core/tmp-dir!))
   (def tmp-str (.tmp))
