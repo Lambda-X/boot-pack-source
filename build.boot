@@ -12,6 +12,8 @@
 (task-options! pom {:project 'replumb/boot-pack-source
                     :version +version+
                     :description "Boot task that collects and stores Clojure(Script) source files."
+                    :url "https://github.com/Lambda-X/boot-pack-source"
+                    :scm {:url "https://github.com/Lambda-X/boot-pack-source.git"}
                     :license {"Eclipse Public License" "http://www.eclipse.org/legal/epl-v10.html"}})
 
 (ns-unmap 'boot.user 'test)
@@ -21,15 +23,14 @@
 (deftask deps [])
 
 (deftask build []
-  (comp
-   (pom)
-   (jar)
-   (install)))
+  (build-jar))
 
 (deftask deploy []
   (comp
    (build)
-   (push :repo "clojars" :gpg-sign (not (.endsWith +version+ "-SNAPSHOT")))))
+   (push :repo "clojars"
+         :gpg-sign (not (.endsWith +version+ "-SNAPSHOT"))
+         :ensure-clean false)))
 
 (deftask set-dev! []
   (set-env! :source-paths #(conj % "test")
