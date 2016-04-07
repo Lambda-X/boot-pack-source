@@ -28,18 +28,27 @@
   (str path (when-not (= "/" (last path)) "/")))
 
 (core/deftask rebase
-  "A task for moving fileset from one dir to another"
-  [w with-meta KEY  #{kw}  "The set of metadata keys files must have for being rebased."
-   p path      PATH str    "The destination path to rebase the filtered fileset into."
-   v invert         bool   "Invert the sense of with-meta."]
+  "A task for moving TmpFile(s) from one dir to another in the fileset.
+
+  Note that the destination will be magically materialized.
+
+  For instance, if you want to rebase all the files with no ::initial-fileset
+  metadata to my-dest-dir:
+
+  (boot (rebase :path \"my-dest-dir\"
+                :with-meta #{::initial-fileset}
+                :invert true)"
+  [w with-meta   KEY  #{kw} "The set of metadata keys files must have for being rebased."
+   d destination PATH str   "The destination path to rebase the filtered fileset into."
+   v invert      bool       "Invert the sense of with-meta."]
 
   (core/with-pre-wrap fileset
     (let [files (filter-tmpfiles (core/ls fileset) with-meta invert)
-          paths (map (juxt :path #(str (normalize-path path) (:path %))) files)]
+          paths (map (juxt :path #(str (normalize-path destination) (:path %))) files)]
       (core/commit! (reduce (fn [acc [from-path to-path]]
                               (merge acc (core/mv acc from-path to-path))) fileset paths)))))
 
-(core/deftask sift-jar*
+(core/deftask ^:private sift-jar*
   "Custom version of boot.task.built-in/sift :add-jar which accepts
   a (previously resolved) jar file in input."
   [j jar     PATH  str      "The path of the jar file."
@@ -130,7 +139,9 @@
                                                  :invert true)))
                   (built-in/sift :add-meta {#".*" ::initial-fileset})
                   jars)
-          (rebase :path dest-dir :with-meta #{::initial-fileset} :invert true))))
+          (rebase :destination dest-dir
+                  :with-meta #{::initial-fileset}
+                  :invert true))))
 
 
 (comment
