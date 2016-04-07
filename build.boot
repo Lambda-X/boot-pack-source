@@ -20,6 +20,17 @@
 
 (deftask deps [])
 
+(deftask build []
+  (comp
+   (pom)
+   (jar)
+   (install)))
+
+(deftask deploy []
+  (comp
+   (build)
+   (push :repo "clojars" :gpg-sign (not (.endsWith +version+ "-SNAPSHOT")))))
+
 (deftask set-dev! []
   (set-env! :source-paths #(conj % "test")
             :dependencies #(into % '[[adzerk/boot-test "1.1.1" :scope "test"]]))
