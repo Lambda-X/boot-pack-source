@@ -1,4 +1,4 @@
-(ns replumb.boot-cljs-src-test
+(ns replumb.boot-pack-source-test
   (:require [clojure.test :refer :all]
             [boot.util :as util]
             [replumb.boot-cljs-src :refer :all]))

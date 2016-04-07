@@ -1,4 +1,10 @@
-# replumb/boot-cljs-src
+# replumb/boot-pack-source
+
+[](dependency)
+```clojure
+[replumb/boot-pack-source "0.1.0-SNAPSHOT"] ;; latest release
+```
+[](/dependency)
 
 Boot task that collects the ClojureScript files each and every [self-hosted](https://en.m.wikipedia.org/wiki/Self-hosting_compiler) REPL app requires (pun intended) in order to work properly.
 

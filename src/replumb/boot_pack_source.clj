@@ -1,4 +1,4 @@
-(ns replumb.boot-cljs-src
+(ns replumb.boot-pack-source
   {:boot/export-tasks true}
   (:require [clojure.string :as string]
             [boot.core :as core :refer [boot]]

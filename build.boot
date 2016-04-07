@@ -9,7 +9,7 @@
 (def +version+ "0.1.0-SNAPSHOT")
 (bootlaces! +version+)
 
-(task-options! pom {:project 'boot-cljs-src
+(task-options! pom {:project 'replumb/boot-pack-source
                     :version +version+
                     :description "Boot task that collects and stores Clojure(Script) source files."
                     :license {"Eclipse Public License" "http://www.eclipse.org/legal/epl-v10.html"}})
