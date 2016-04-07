@@ -10,8 +10,8 @@ Boot task that collects source files `#{.clj .cljs .cljc .js}` and copies them
 in `to-dir`.
 
 This is particularly useful for
-[self-hosted](https://en.m.wikipedia.org/wiki/Self-hosting_compiler) REPL apps,
-which requires (pun intended) them in order to work properly.
+[self-hosted REPL](https://github.com/Lambda-X/replumb) apps, which requires
+(pun intended) them in order to work properly.
 
 ## Usage
 
@@ -22,11 +22,32 @@ For instance from the command line:
 boot cljs sass pack-source -d "packed-src"
 ```
 
+As usual, `boot pack-source -h` shows you the option summary.
 
+Note that if you don't specify `-d|--deps`, the current `(get-env)` will be
+queried and all the dependencies in `build.boot` will be included.
+
+This time in the repl, another example that dumps everything to the `target`
+folder:
+
+```
+(boot (pack-source :deps #{['org.clojure/clojurescript "1.8.34"]}
+                   :exclude #{#"project.clj"
+                              #"third_party\/closure\/.*base.js$"
+                              #"third_party\/closure\/.*deps.js$"
+                              #"org\/clojure\/clojure\/.*$"}
+                   :exclusions '#{org.clojure/clojure
+                                  org.mozilla/rhino})
+      (built-in/target))
+```
+
+For more info on why you would need this see the following blog post:
+http://lambdax.io/blog/posts/2015-12-21-cljs-replumb-require.html
+  
 ## Contributing
 
-I suggest first of all open an issue explaining what is missing and why you
-think it should be added.  Then start auto testing with `boot auto-test` and
+I suggest first of all to open an issue explaining what is missing and why you
+think it should be added. If the reason is compelling, run `boot auto-test` and
 freely hack away.
 
 ## License
@@ -35,8 +56,8 @@ Distributed under the Eclipse Public License, the same as Clojure.
 
 Copyright (C) 2016 Andrea Richiardi & Scalac Sp. z o.o.
 
-
 ## LambdaX
+
 Putting (defn) back into programming
 
 We are a Clojure-centric software house.
