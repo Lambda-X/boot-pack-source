@@ -87,9 +87,7 @@
 
 (def ^:private inclusion-regex-set
   "Entries matching these Patterns will be included."
-  #{#"LICENSE"
-    #"epl-v10"
-    #".clj$"
+  #{#".clj$"
     #".cljs$"
     #".cljc$"
     #".js$"})
@@ -151,8 +149,7 @@
   (boot (pack-source :deps #{['org.clojure/clojurescript "1.8.34"]}
                      :exclude #{#"project.clj"
                                 #"third_party\/closure\/.*base.js$"
-                                #"third_party\/closure\/.*deps.js$"
-                                #"org\/clojure\/clojure\/.*$"}
+                                #"third_party\/closure\/.*deps.js$"}
                      :exclusions '#{org.clojure/clojure
                                     org.mozilla/rhino})
         (built-in/target))
