@@ -2,7 +2,7 @@
 
 [](dependency)
 ```clojure
-[replumb/boot-pack-source "0.1.1"] ;; latest release
+[replumb/boot-pack-source "0.1.2-SNAPSHOT"] ;; latest release
 ```
 [](/dependency)
 
