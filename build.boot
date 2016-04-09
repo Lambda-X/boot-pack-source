@@ -4,7 +4,7 @@
                  [degree9/boot-semver "1.2.4" :scope "test"]
                  [adzerk/bootlaces "0.1.13" :scope "test"]])
 
-(require '[adzerk.bootlaces :refer [build-jar]]
+(require '[adzerk.bootlaces :refer [bootlaces! build-jar]]
          '[boot-semver.core :refer :all])
 
 (def +version+ (get-version))
@@ -15,6 +15,8 @@
                     :url "https://github.com/Lambda-X/boot-pack-source"
                     :scm {:url "https://github.com/Lambda-X/boot-pack-source.git"}
                     :license {"Eclipse Public License" "http://www.eclipse.org/legal/epl-v10.html"}})
+
+(bootlaces! +version+)
 
 (ns-unmap 'boot.user 'test)
 
