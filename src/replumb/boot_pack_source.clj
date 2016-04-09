@@ -100,7 +100,7 @@
   "Add the relevant source files from the project dependencies.
 
   Specifically, this task moves all the clj, cljs, cljc and js files to the
-  to-dir folder specified by the user (defaulting to cljs-src) and keeping
+  to-dir folder specified by the user (defaulting to clj-src) and keeping
   intact the original namespace structure.
 
   Currently only the \"compile\" scope is taken into consideration and in case
@@ -117,7 +117,7 @@
    x exclusions DEP     #{sym}       "The dependency symbol to exclude explicitly."
    i include    MATCH   #{regex}     "The set of regexes that paths must match."
    e exclude    MATCH   #{regex}     "The set of regexes that paths must NOT match."]
-  (let [dest-dir (or to-dir "cljs-src")
+  (let [dest-dir (or to-dir "clj-src")
         env (update (core/get-env) :dependencies
                     (fn [old-deps]
                       (->> (vec (or deps old-deps))
