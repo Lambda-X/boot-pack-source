@@ -5,7 +5,7 @@
                  [adzerk/bootlaces "0.1.13" :scope "test"]])
 
 (require '[adzerk.bootlaces :refer [build-jar]]
-         '[boot-semver.core :refer [version get-version]])
+         '[boot-semver.core :refer :all])
 
 (def +version+ (get-version))
 
