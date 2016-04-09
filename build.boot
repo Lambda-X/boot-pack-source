@@ -4,10 +4,10 @@
                  [degree9/boot-semver "1.2.4" :scope "test"]
                  [adzerk/bootlaces "0.1.13" :scope "test"]])
 
-(require '[adzerk.bootlaces :refer :all])
+(require '[adzerk.bootlaces :refer [build-jar]]
+         '[boot-semver.core :refer [version get-version]])
 
-(def +version+ "0.1.1-SNAPSHOT")
-(bootlaces! +version+)
+(def +version+ (get-version))
 
 (task-options! pom {:project 'replumb/boot-pack-source
                     :version +version+
