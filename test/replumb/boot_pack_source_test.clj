@@ -1,7 +1,7 @@
 (ns replumb.boot-pack-source-test
   (:require [clojure.test :refer :all]
             [boot.util :as util]
-            [replumb.boot-cljs-src :refer :all]))
+            [replumb.boot-pack-source :refer :all]))
 
 (declare test-fileset test-deps)
 
