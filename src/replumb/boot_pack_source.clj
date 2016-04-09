@@ -48,19 +48,24 @@
       (core/commit! (reduce (fn [acc [from-path to-path]]
                               (merge acc (core/mv acc from-path to-path))) fileset paths)))))
 
-(core/deftask ^:private sift-jar*
+(core/deftask sift-jars
   "Custom version of boot.task.built-in/sift :add-jar which accepts
   a (previously resolved) jar file in input."
-  [j jar     PATH  str      "The path of the jar file."
+  [j jars    PATH  #{str}   "The paths of the jar files."
    i include MATCH #{regex} "The set of regexes that paths must match."
-   v invert        bool     "Invert the sense of matching."]
-
+   e exclude MATCH #{regex} "The set of regexes that paths must NOT match."]
   (core/with-pre-wrap fileset
-    (core/add-cached-resource fileset (digest/md5 jar)
-                              (partial pod/unpack-jar jar)
-                              :include (when-not invert include)
-                              :exclude (when invert include)
-                              :mergers pod/standard-jar-mergers)))
+    (reduce (fn [fs jar]
+              (-> fs
+                  (core/add-cached-resource
+                   (digest/md5 jar)
+                   (partial pod/unpack-jar jar)
+                   :include include
+                   :exclude exclude
+                   :mergers pod/standard-jar-mergers)
+                  core/commit!))
+            fileset
+            jars)))
 
 (def default-scopes #{"compile"})
 
@@ -132,14 +137,11 @@
                   (remove #(contains? (or exclusions #{}) (-> % :dep first)))
                   (map :jar))]
     (util/dbug "Including source from the following jars:\n%s\n" (string/join "\n" jars))
-    (comp (reduce #(comp %1 (comp (sift-jar* :jar %2 :include include-set)
-                                  (built-in/sift :include exclude-set
-                                                 :invert true)))
-                  (built-in/sift :add-meta {#".*" ::initial-fileset})
-                  jars)
+    (comp (built-in/sift :add-meta {#".*" ::initial-fileset})
+          (sift-jars :jars jars
+                     :include include-set :exclude exclude-set)
           (rebase :destination dest-dir
-                  :with-meta #{::initial-fileset}
-                  :invert true))))
+                  :with-meta #{::initial-fileset} :invert true))))
 
 
 (comment
