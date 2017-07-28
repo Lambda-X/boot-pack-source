@@ -1,14 +1,12 @@
-# boot-pack-source
-
 ---
 __Renamed and moved to [powerlaces/boot-sources](https://github.com/boot-clj/boot-sources)__
 ---
 
-[](dependency)
+#### (deprecated) boot-pack-source
+
 ```clojure
-[replumb/boot-pack-source "0.1.2-1"] ;; latest release
+[replumb/boot-pack-source "0.1.2-1"] ;; last deployed version, there won't be any more version
 ```
-[](/dependency)
 
 Boot task that collects source files `#{.clj .cljs .cljc .js}` and copies them
 in `to-dir`.
